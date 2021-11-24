@@ -4,29 +4,36 @@ use std::time::Duration;
 use ansi_term::Colour;
 use std::fs;
 
+
+#[derive(Debug)]
 struct File {
     path: String,
-    meta: fs::Metadata,
+    is_dir: bool,
+    is_file: bool,
 }
 fn list_files(path: &str) -> Vec<File> {
     let (tx, rx) = mpsc::channel();
     let paths = fs::read_dir(path).unwrap();
-    for p in paths {
+
+    for r in paths {
+        let file = r.unwrap();
         let tx = tx.clone();
         thread::spawn(move || {
-            let path = String::from(p);
-            let meta = fs::metadata(path).unwrap();
-            let val = File {path, meta};
+            thread::sleep(Duration::from_millis(300));
+            let path = String::from(file.path().to_str().unwrap());
+            let is_dir = file.metadata().unwrap().is_dir();
+            let is_file = file.metadata().unwrap().is_file();
+            let val = File {path: path.clone(), is_dir, is_file};
             tx.send(val).unwrap();
         });
     }
-    let files = Vec::new();
+    let mut files = Vec::new();
     loop {
-        let received = rx.recv_timeout(Duration::from_millis(400)){
-            Ok(val) => files.push(val),
+        match rx.recv_timeout(Duration::from_millis(400)){
+            Ok(val) => {println!("{}", Colour::Green.bold().paint(format!("{:#?}", val)));files.push(val);},
             Err(_) => return files
         };
-        println!("{}{}", Colour::Green.bold().paint(received));
+
     }
 }
 
